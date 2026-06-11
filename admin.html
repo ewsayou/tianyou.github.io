@@ -44,10 +44,17 @@
 
     // 验证是否登录
     async function checkAuth() {
-      const { data: { user } } = await sb.auth.getUser();
-      if (!user) window.location.href = '/login.html';
-    }
-    checkAuth();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) {
+    // 等1秒再试一次
+    setTimeout(async () => {
+      const { data: { user: retryUser } } = await sb.auth.getUser();
+      if (!retryUser) window.location.href = '/login.html';
+      else location.reload();
+    }, 1000);
+  }
+}
+checkAuth();
 
     document.getElementById('logout').addEventListener('click', async () => {
       await sb.auth.signOut();
