@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员登录</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="login-page">
+  <div class="login-card">
+    <h2>管理员登录</h2>
+    <p class="subtitle">请输入账号密码进入后台</p>
+    <div class="login-error" id="login-error"></div>
+    <form id="login-form">
+      <div class="form-group">
+        <label for="email">邮箱</label>
+        <input id="email" type="email" placeholder="admin@example.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="password">密码</label>
+        <input id="password" type="password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="login-submit">登录</button>
+    </form>
+  </div>
+
+  <script>
+    const sb = supabase.createClient('https://ughyvyfwzrisbnpowumx.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnaHl2eWZ3enJpc2JucG93dW14Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExMzEzMTksImV4cCI6MjA5NjcwNzMxOX0.xtiiXgEEh2sfrFVG6dNWjHBwpHBRMXGK_hszHVxcFYo');
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('login-submit');
+      const errEl = document.getElementById('login-error');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-top-color:#fff;border-color:rgba(255,255,255,0.2)"></span> 登录中...';
+      errEl.classList.remove('show');
+
+      const { data, error } = await sb.auth.signInWithPassword({
+        email: document.getElementById('email').value,
+        password: document.getElementById('password').value
+      });
+
+      if (error) {
+        errEl.textContent = '登录失败：' + error.message;
+        errEl.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = '登录';
+      } else {
+        window.location.href = '/admin.html';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理后台</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="admin-page">
+    <div class="admin-header">
+      <h1>管理后台</h1>
+      <button id="logout" class="btn btn-ghost btn-small">退出登录</button>
+    </div>
+
+    <div class="admin-section">
+      <h2>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        更换背景图
+      </h2>
+      <div class="form-row">
+        <input id="bg-url" type="url" placeholder="输入图片 URL">
+        <button id="save-bg" class="btn btn-primary">保存</button>
+      </div>
+      <div class="form-hint">或者上传图片：</div>
+      <input type="file" id="bg-file" accept="image/*">
+    </div>
+
+    <div class="admin-section">
+      <h2>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        添加分类
+      </h2>
+      <div class="form-row">
+        <input id="cat-name" type="text" placeholder="分类名称">
+        <input id="cat-slug" type="text" placeholder="英文标识">
+        <button id="add-cat" class="btn btn-primary">添加</button>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h2>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        添加图片
+      </h2>
+      <div class="form-row">
+        <input id="img-url" type="url" placeholder="图片 URL">
+        <input id="img-title" type="text" placeholder="标题">
+        <select id="img-cat"></select>
+        <button id="add-img" class="btn btn-primary">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const SB_URL = 'https://ughyvyfwzrisbnpowumx.supabase.co';
+    const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVnaHl2eWZ3enJpc2JucG93dW14Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExMzEzMTksImV4cCI6MjA5NjcwNzMxOX0.xtiiXgEEh2sfrFVG6dNWjHBwpHBRMXGK_hszHVxcFYo';
+    const sb = supabase.createClient(SB_URL, SB_KEY);
+
+    function toast(msg, type) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show' + (type === 'error' ? ' error' : type === 'success' ? ' success' : '');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    async function checkAuth() {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) window.location.href = '/login.html';
+    }
+    checkAuth();
+
+    document.getElementById('logout').addEventListener('click', async () => {
+      await sb.auth.signOut();
+      window.location.href = '/index.html';
+    });
+
+    async function setBg(url) {
+      await sb.from('settings').update({ value: url }).eq('key', 'background_image');
+      toast('背景已更新', 'success');
+    }
+    document.getElementById('save-bg').addEventListener('click', () => {
+      const val = document.getElementById('bg-url').value.trim();
+      if (val) setBg(val);
+    });
+    document.getElementById('bg-file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const { data, error } = await sb.storage.from('backgrounds').upload(`bg-${Date.now()}.jpg`, file);
+      if (error) return toast('上传失败', 'error');
+      const url = sb.storage.from('backgrounds').getPublicUrl(data.path).data.publicUrl;
+      setBg(url);
+    });
+
+    async function loadCats() {
+      const { data } = await sb.from('categories').select('*');
+      const sel = document.getElementById('img-cat');
+      sel.innerHTML = data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+      if (data.length === 0) sel.innerHTML = '<option value="">暂无分类，请先添加</option>';
+    }
+    document.getElementById('add-cat').addEventListener('click', async () => {
+      const name = document.getElementById('cat-name').value.trim();
+      const slug = document.getElementById('cat-slug').value.trim();
+      if (!name || !slug) return toast('请填写完整', 'error');
+      await sb.from('categories').insert({ name, slug });
+      toast('分类已添加', 'success');
+      document.getElementById('cat-name').value = '';
+      document.getElementById('cat-slug').value = '';
+      loadCats();
+    });
+
+    document.getElementById('add-img').addEventListener('click', async () => {
+      const url = document.getElementById('img-url').value.trim();
+      const title = document.getElementById('img-title').value.trim();
+      const category_id = document.getElementById('img-cat').value;
+      if (!url) return toast('请输入图片 URL', 'error');
+      await sb.from('images').insert({ url, title, category_id });
+      toast('图片已添加', 'success');
+      document.getElementById('img-url').value = '';
+      document.getElementById('img-title').value = '';
+    });
+
+    loadCats();
+  </script>
+</body>
+</html>
